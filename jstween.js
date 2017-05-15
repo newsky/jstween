@@ -1,26 +1,23 @@
 /*!
- * VERSION: 0.7.0
+ * VERSION: 0.7.1
  * DATE: 2016-8-17
- * GIT:https://github.com/shrekshrek/jstween
- *
- * @author: Shrek.wang, shrekshrek@gmail.com
+ * GIT: https://github.com/shrekshrek/jstween
+ * @author: Shrek.wang
  **/
 
 (function (factory) {
-    var root = (typeof self == 'object' && self.self == self && self) ||
-        (typeof global == 'object' && global.global == global && global);
 
     if (typeof define === 'function' && define.amd) {
         define(['exports'], function (exports) {
-            root.JT = factory(root, exports);
+            window.JT = factory(exports);
         });
     } else if (typeof exports !== 'undefined') {
-        factory(root, exports);
+        factory(exports);
     } else {
-        root.JT = factory(root, {});
+        window.JT = factory({});
     }
 
-}(function (root, JT) {
+}(function (JT) {
     // --------------------------------------------------------------------辅助方法
     function extend(obj, obj2) {
         for (var prop in obj2) {
@@ -200,7 +197,7 @@
     }
 
     function checkString(value) {
-        return /\S\s+\S/g.test(value) || !/\d/g.test(value);
+        return /(,| |jpeg|jpg|png|gif|-3d)/g.test(value) || !/\d/g.test(value);
     }
 
     function getProp(target, name) {
@@ -321,8 +318,7 @@
     function globalUpdate() {
         isUpdating = true;
         var _len = tweens.length;
-        var _len2 = calls.length;
-        if (_len === 0 && _len2 === 0) {
+        if (_len === 0) {
             isUpdating = false;
             return;
         }
@@ -341,16 +337,6 @@
                 }
                 i--;
                 _len--;
-            }
-        }
-
-        for (var j = 0; j < _len2; j++) {
-            var _call = calls[j];
-            if (_call && !_call._update(_step)) {
-                calls.splice(j, 1);
-                if (_call.onEnd) _call.onEnd.apply(_call, _call.onEndParams);
-                j--;
-                _len2--;
             }
         }
 
@@ -420,7 +406,6 @@
                 if (this.curRepeat == 0) {
                     this._updateProp();
                     if (this.onUpdate) this.onUpdate.apply(this, this.onUpdateParams);
-                    // if (this.onEnd) this.onEnd.apply(this, this.onEndParams);
                     this._checkStart();
                     return false;
                 }
@@ -473,6 +458,7 @@
                 } else {
                     _n = _start.num + ( _end.num - _start.num ) * _radio;
                 }
+
                 _n = fixed3(_n);
                 this.curVars[prop] = {num: _n, unit: _end.unit};
 
@@ -549,6 +535,90 @@
 
 
     // --------------------------------------------------------------------tween 全局方法
+    function addTween(type, target, time, fromVars, toVars){
+        switch(type){
+            case 'from':
+                checkBezier(fromVars);
+                break;
+            default:
+                checkBezier(toVars);
+                break;
+        }
+
+        var _target = getElement(target);
+        var _tweens = [];
+        each(_target, function (index, obj) {
+            var _fromVars = {};
+            var _toVars = {};
+            var _isDom = isDOM(obj);
+            var _vars;
+            switch(type){
+                case 'fromTo':
+                    _vars = toVars;
+                    break;
+                case 'from':
+                    _vars = fromVars;
+                    break;
+                case 'to':
+                    _vars = toVars;
+                    break;
+            }
+
+            if (_isDom) {
+                checkJtobj(obj);
+                for (var i in _vars) {
+                    var _name = checkPropName(obj, i);
+                    if (_name) {
+                        var _o = regValue(getProp(obj, _name));
+                        switch(type){
+                            case 'fromTo':
+                                _fromVars[_name] = checkValue(_o, fromVars[i]);
+                                _toVars[_name] = checkValue(_o, toVars[i], _fromVars[_name], false);
+                                break;
+                            case 'from':
+                                _fromVars[_name] = checkValue(_o, fromVars[i], _o, true);
+                                _toVars[_name] = _o;
+                                break;
+                            case 'to':
+                                _fromVars[_name] = _o;
+                                _toVars[_name] = checkValue(_o, toVars[i], _o, false);
+                                break;
+                        }
+                    } else {
+                        _toVars[i] = _vars[i];
+                    }
+                }
+
+            } else {
+                for (var i in _vars) {
+                    if ((obj[i] !== undefined)) {
+                        var _o = regValue(obj[i]);
+                        switch(type){
+                            case 'fromTo':
+                                _fromVars[i] = checkValue(_o, fromVars[i]);
+                                _toVars[i] = checkValue(_o, toVars[i], _fromVars[i], false);
+                                break;
+                            case 'from':
+                                _fromVars[i] = checkValue(_o, fromVars[i], _o, true);
+                                _toVars[i] = _o;
+                                break;
+                            case 'to':
+                                _fromVars[i] = _o;
+                                _toVars[i] = checkValue(_o, toVars[i], _o, false);
+                                break;
+                        }
+                    } else {
+                        _toVars[i] = _vars[i];
+                    }
+                }
+            }
+            _tweens.push(new tween(obj, time, _fromVars, _toVars, _isDom));
+        });
+
+        if (_tweens.length == 1) return _tweens[0];
+        else return _tweens;
+    }
+
     extend(JT, {
         get: function (target, param) {
             var _target = getElement(target);
@@ -595,132 +665,15 @@
         },
 
         fromTo: function (target, time, fromVars, toVars) {
-            checkBezier(toVars);
-            var _target = getElement(target);
-            var _tweens = [];
-            each(_target, function (index, obj) {
-                var _fromVars = {};
-                var _toVars = {};
-                var _isDom = isDOM(obj);
-                if (_isDom) {
-                    checkJtobj(obj);
-                    for (var i in toVars) {
-                        var _name = checkPropName(obj, i);
-                        if (_name) {
-                            var _o = regValue(getProp(obj, _name));
-                            _fromVars[_name] = checkValue(_o, fromVars[i]);
-                            _toVars[_name] = checkValue(_o, toVars[i], _fromVars[_name], false);
-                        } else {
-                            _toVars[i] = toVars[i];
-                        }
-                    }
-                } else {
-                    for (var i in toVars) {
-                        if ((obj[i] !== undefined)) {
-                            var _o = regValue(obj[i]);
-                            _fromVars[i] = checkValue(_o, fromVars[i]);
-                            _toVars[i] = checkValue(_o, toVars[i], _fromVars[i], false);
-                        } else {
-                            _toVars[i] = toVars[i];
-                        }
-                    }
-                }
-
-                var _tween = new tween(obj, time, _fromVars, _toVars, _isDom);
-                _tweens.push(_tween);
-            });
-
-            if (_tweens.length == 1) {
-                return _tweens[0];
-            } else {
-                return _tweens;
-            }
+            return addTween('fromTo', target, time, fromVars, toVars);
         },
 
         from: function (target, time, fromVars) {
-            checkBezier(fromVars);
-            var _target = getElement(target);
-            var _tweens = [];
-            each(_target, function (index, obj) {
-                var _fromVars = {};
-                var _toVars = {};
-                var _isDom = isDOM(obj);
-                if (_isDom) {
-                    checkJtobj(obj);
-                    for (var i in fromVars) {
-                        var _name = checkPropName(obj, i);
-                        if (_name) {
-                            var _o = regValue(getProp(obj, _name));
-                            _fromVars[_name] = checkValue(_o, fromVars[i], _o, true);
-                            _toVars[_name] = _o;
-                        } else {
-                            _toVars[i] = fromVars[i];
-                        }
-                    }
-                } else {
-                    for (var i in fromVars) {
-                        if ((obj[i] !== undefined)) {
-                            var _o = regValue(obj[i]);
-                            _fromVars[i] = checkValue(_o, fromVars[i], _o, true);
-                            _toVars[i] = _o;
-                        } else {
-                            _toVars[i] = fromVars[i];
-                        }
-                    }
-                }
-
-                var _tween = new tween(obj, time, _fromVars, _toVars, _isDom);
-                _tweens.push(_tween);
-            });
-
-            if (_tweens.length == 1) {
-                return _tweens[0];
-            } else {
-                return _tweens;
-            }
+            return addTween('from', target, time, fromVars, {});
         },
 
         to: function (target, time, toVars) {
-            checkBezier(toVars);
-            var _target = getElement(target);
-            var _tweens = [];
-            each(_target, function (index, obj) {
-                var _fromVars = {};
-                var _toVars = {};
-                var _isDom = isDOM(obj);
-                if (_isDom) {
-                    checkJtobj(obj);
-                    for (var i in toVars) {
-                        var _name = checkPropName(obj, i);
-                        if (_name) {
-                            var _o = regValue(getProp(obj, _name));
-                            _fromVars[_name] = _o;
-                            _toVars[_name] = checkValue(_o, toVars[i], _o, false);
-                        } else {
-                            _toVars[i] = toVars[i];
-                        }
-                    }
-                } else {
-                    for (var i in toVars) {
-                        if ((obj[i] !== undefined)) {
-                            var _o = regValue(obj[i]);
-                            _fromVars[i] = _o;
-                            _toVars[i] = checkValue(_o, toVars[i], _o, false);
-                        } else {
-                            _toVars[i] = toVars[i];
-                        }
-                    }
-                }
-
-                var _tween = new tween(obj, time, _fromVars, _toVars, _isDom);
-                _tweens.push(_tween);
-            });
-
-            if (_tweens.length == 1) {
-                return _tweens[0];
-            } else {
-                return _tweens;
-            }
+            return addTween('to', target, time, {}, toVars);
         },
 
         kill: function (target, toEnd) {
@@ -771,7 +724,11 @@
                 }
             }
             return false;
-        }
+        },
+
+        call: function (time, callback, params, isPlaying) {
+            return new tween(callback, time, {}, {onEnd:callback, onEndParams:params, isPlaying:isPlaying}, false);
+        },
 
     });
 
@@ -793,142 +750,6 @@
         for (var i = _len - 1; i >= 0; i--) {
             var _tween = tweens[i];
             _tween[action]();
-        }
-    }
-
-
-    // --------------------------------------------------------------------call
-    var calls = [];
-
-    function call() {
-        this.initialize.apply(this, arguments);
-    }
-
-    extend(call.prototype, {
-        initialize: function (time, callback, params, isPlaying) {
-            this.delay = time * 1000;
-            this.onEnd = callback || null;
-            this.onEndParams = params || [];
-
-            this.curTime = 0;
-            this.endTime = this.delay;
-            this.isPlaying = isPlaying || true;
-
-            if (this.delay != 0) {
-                this._addSelf();
-            } else {
-                if (this.onEnd) this.onEnd.apply(this, this.onEndParams);
-            }
-
-        },
-
-        _update: function (time) {
-            if (!this.isPlaying) return true;
-
-            this.curTime += time;
-
-            if (this.curTime < this.endTime) return true;
-
-            // if (this.onEnd) this.onEnd.apply(this, this.onEndParams);
-            return false;
-        },
-
-        _addSelf: function () {
-            calls.push(this);
-            if (!isUpdating) {
-                lastTime = JT.now();
-                globalUpdate();
-            }
-        },
-
-        _removeSelf: function () {
-            var i = calls.indexOf(this);
-            if (i !== -1) {
-                calls.splice(i, 1);
-            }
-        },
-
-        play: function () {
-            this.isPlaying = true;
-        },
-
-        pause: function () {
-            this.isPlaying = false;
-        },
-
-        kill: function (toEnd) {
-            this._removeSelf();
-            if (toEnd) {
-                this._toEnd();
-                if (this.onEnd) this.onEnd.apply(this, this.onEndParams);
-            }
-        }
-    });
-
-
-    //---------------------------------------------------------------call 全局方法
-    extend(JT, {
-        call: function (time, callback, params, isPlaying) {
-            return new call(time, callback, params, isPlaying);
-        },
-
-        killCall: function (callback, toEnd) {
-            var _target = callback;
-            var _len = calls.length;
-            each(_target, function (index, obj) {
-                for (var i = _len - 1; i >= 0; i--) {
-                    var _call = calls[i];
-                    if (_call.onEnd === obj) {
-                        _call.kill(toEnd);
-                    }
-                }
-            });
-        },
-
-        killAllCalls: function (toEnd) {
-            var _len = calls.length;
-            for (var i = _len - 1; i >= 0; i--) {
-                var _call = calls[i];
-                _call.kill(toEnd);
-            }
-        },
-
-        playCall: function (callback) {
-            actionProxyCall(callback, 'play');
-        },
-
-        playAllCalls: function () {
-            actionProxyAllCalls('play');
-        },
-
-        pauseCall: function (callback) {
-            actionProxyCall(callback, 'pause');
-        },
-
-        pauseAllCalls: function () {
-            actionProxyAllCalls('pause');
-        }
-
-    });
-
-    function actionProxyCall(callback, action) {
-        var _target = callback;
-        var _len = calls.length;
-        each(_target, function (index, obj) {
-            for (var i = _len - 1; i >= 0; i--) {
-                var _call = calls[i];
-                if (_call.onEnd === obj) {
-                    _call[action]();
-                }
-            }
-        });
-    }
-
-    function actionProxyAllCalls(action) {
-        var _len = calls.length;
-        for (var i = _len - 1; i >= 0; i--) {
-            var _call = calls[i];
-            _call[action]();
         }
     }
 

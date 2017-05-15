@@ -1,27 +1,24 @@
 /*!
  * VERSION: 0.3.0
  * DATE: 2016-8-17
- * GIT:https://github.com/shrekshrek/jstween
- *
- * @author: Shrek.wang, shrekshrek@gmail.com
+ * GIT: https://github.com/shrekshrek/jstween
+ * @author: Shrek.wang
  **/
 
 (function (factory) {
-    var root = (typeof self == 'object' && self.self == self && self) ||
-        (typeof global == 'object' && global.global == global && global);
 
     if (typeof define === 'function' && define.amd) {
-        define(['jstween', 'exports'], function (JT, exports) {
-            root.JTL = factory(root, exports, JT);
+        define(['jstween', 'exports'], function(JT, exports) {
+            window.JTL = factory(exports, JT);
         });
     } else if (typeof exports !== 'undefined') {
         var JT = require('jstween');
-        factory(root, exports, JT);
+        factory(exports, JT);
     } else {
-        root.JTL = factory(root, {}, root.JT);
+        window.JTL = factory({}, window.JT);
     }
 
-}(function (root, JTL, JT) {
+}(function (JTL, JT) {
     // --------------------------------------------------------------------辅助方法
     function extend(obj, obj2) {
         for (var prop in obj2) {
@@ -162,17 +159,19 @@
             var _time = 0;
             if (_o.label) {
                 _time = this.getLabelTime(_o.label);
-
-                switch (_o.ext) {
-                    case '+=':
-                        _time += _o.num;
-                        break;
-                    case '-=':
-                        _time -= _o.num;
-                        break;
-                }
-            } else {
+            } else if(_o.ext) {
+                _time = this.labelTime;
+            }else if(_o.num) {
                 _time = _o.num;
+            }
+
+            switch (_o.ext) {
+                case '+=':
+                    _time += _o.num;
+                    break;
+                case '-=':
+                    _time -= _o.num;
+                    break;
             }
 
             return _time;
